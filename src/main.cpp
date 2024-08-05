@@ -4,6 +4,8 @@
 #include <mpi.h>
 #include <functional>
 
+#include <type_traits>
+
 #include "smumps_c.h"
 #include "dmumps_c.h"
 // add complex matrix ? 
@@ -17,25 +19,37 @@ using namespace std ;
 #define JOB_END -2
 
 
-enum MPI_execution_rank {MASTER, ALL, EXCLUDE_MASTER} ; 
+namespace MpiRanks {
+class All {
+	//using ranks = All ; 
+};
+class OnlyMaster {
+	//using ranks = OnlyMaster ;
+};	
+class ExcludeMaster {
+	//using ranks = ExcludeMaster ;
+};
+}
 // enable specific execution space thanks to template (todo?)
 //
-template <MPI_execution_rank RANK, typename FUNCTION>///, typename... ARGS>
-void function_execution_space(FUNCTION func){//, ARGS... args){
+//
+/*
+template <typename Ranks, typename FUNCTION>///, typename... ARGS>
+void function_execution_space(Ranks const& ranks, FUNCTION func){//, ARGS... args){
 	int rank ; 
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	if constexpr(RANK == MASTER){
+	if constexpr(is_same_v<Ranks, MpiRanks::OnlyMaster>){
 		// execution on rank 0 only
 		if (rank == 0 ){
 			func();//args...);
 			cout << "execution in rank " << rank << endl ; 
 		}
 	}
-	else if constexpr(RANK == ALL){
+	else if constexpr(is_same_v<Ranks, MpiRanks::All>){
                         func();//args...);
                         cout << "execution in rank " << rank << endl ;
 	}
-	else if constexpr(RANK == EXCLUDE_MASTER){
+	else if constexpr(is_same_v<Ranks, MpiRanks::ExcludeMaster>){
 		if (rank != 0){
                         func();//args...);
                         cout << "execution in rank  " << rank << endl ;
@@ -43,10 +57,16 @@ void function_execution_space(FUNCTION func){//, ARGS... args){
 	}
 }
 
-int hey(){
-	cout << "hey " << endl ;
-       return 0 ; 	
+void hey(){
+	cout << "hey " << endl ; 	
 }
+
+template <typename Ranks>
+void hey2(Ranks const& ranks){
+	function_execution_space(ranks, hey);
+}
+*/
+
 
 
 // mumps structure
@@ -67,7 +87,7 @@ public:
 	vector<INT> rows, cols;
 	vector<FLOAT> vals;
 
-	void read_matrix(string const& filename){
+	auto read_matrix(string const& filename){
 		ifstream mfile ; 
 		mfile.open(filename);
 		fast_matrix_market::read_options options; 
@@ -101,10 +121,11 @@ public:
 			smumps_c(&mumps);
 		}
 	}
-	auto launch(int& job){
-		mumps.job = job ; 
-		launch() ; 
-	}
+
+        auto launch(int job){
+                mumps.job = job ;
+                launch() ;
+        }
 	auto init_all_rank(){
 		mumps.par = 1 ; 
 		mumps.sym = 0 ; 
@@ -119,11 +140,12 @@ public:
                                 mat.cols[i] += 1;
                                 mat.rows[i] += 1;
                         }
-                        mumps.n = mat.rows ;
+                        mumps.n = mat.nrows ;
                         mumps.nnz = mat.vals.size();
                         mumps.irn = mat.rows.data();
                         mumps.jcn = mat.cols.data();
                         mumps.a = mat.vals.data();
+			set_rhs();
                         mumps.rhs = rhs.data();
                 }
 	}
@@ -142,7 +164,7 @@ public:
 		set_matrix(cm::read_matrix(filename));
 	}
 	auto set_rhs(){
-		rhs (mat.nrows, 1.0) ; 
+		rhs.assign(mat.nrows, 1.0) ; 
 	}
 
 	auto set_icntl(auto& key, auto& value){
@@ -204,7 +226,17 @@ int main(int argc, char ** argv){
 //auto& function_execution_space(FUNCTION func){//, ARGS... args){
 //
 	MPI_Init(&argc, &argv) ; 
-	function_execution_space<ALL>(hey) ; 	
+        c_mumps<DMUMPS_STRUC_C, int, double> mumps {};
+//	mumps.set_matrix("../matrix/bcsstm12/bcsstm12.mtx");
+	c_matrix<int, double> matrix ;
+        matrix.read_matrix("../matrix/bcsstm12/bcsstm12.mtx");	
+        matrix.read_matrix("../matrix/jagmesh4/jagmesh4.mtx");	
+	mumps.set_matrix(matrix);
+	
+	mumps.init() ; 
+	mumps.launch(6);
+
+//function_execution_space(MpiRanks::ExcludeMaster(), hey) ; 	
 	MPI_Finalize();
 
 	return 0;
