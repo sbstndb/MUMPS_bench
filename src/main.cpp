@@ -77,6 +77,31 @@ public:
 	unordered_map<int, long long int> infog ; 
 	unordered_map<int, double> rinfo; 
 	unordered_map<int, double> rinfog;
+
+	template <typename K, typename V>
+	void write_map_to_file(ostream& file, const unordered_map<K, V>& map, const string& type){
+		for (const auto& pair : map){
+			file << type << pair.first << ": " << pair.second << endl ; 
+		}
+	}
+	// ISSUE : MUMPS can be launched in a MPU way hence r____ types are per rank values
+	// then we need to save these datas per rank
+	// i suggest to make a specific write_map for master rank and another for full rank with 
+	// keynames like ringog23r<rank>: ... at the moment
+	void write_maps_to_file(string const& filename){
+                int rank ;
+                MPI_Comm_rank(MPI_COMM_WORLD, &rank) ;
+                if (rank == 0){
+			// only on master rank 
+			std::ofstream file(filename);
+			//write_map_to_file(file, info, "info");
+	                write_map_to_file(file, infog, "infog");
+	                //write_map_to_file(file, rinfo, "rinfo");
+	                write_map_to_file(file, rinfog, "rinfog");
+		}
+	}
+
+
 };
 
 template <typename INT, typename FLOAT>
@@ -111,6 +136,7 @@ public:
 	MPI_Comm comm = USE_COMM_WORLD ; 
 	c_matrix<INT, FLOAT> mat ; 
 	vector<FLOAT> rhs ; 
+	c_mumps_information maps ; 
 
 	//----------------- RUN 
 	auto launch(){
@@ -214,6 +240,11 @@ public:
 
 	}
 
+	auto dump(){
+		maps = get_all() ; 
+		maps.write_maps_to_file("info.log");
+	}
+
 
 };
 
@@ -235,6 +266,7 @@ int main(int argc, char ** argv){
 	
 	mumps.init() ; 
 	mumps.launch(6);
+	mumps.dump();
 
 //function_execution_space(MpiRanks::ExcludeMaster(), hey) ; 	
 	MPI_Finalize();
