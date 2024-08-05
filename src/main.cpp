@@ -33,25 +33,25 @@ class ExcludeMaster {
 // enable specific execution space thanks to template (todo?)
 //
 //
-/*
-template <typename Ranks, typename FUNCTION>///, typename... ARGS>
-void function_execution_space(Ranks const& ranks, FUNCTION func){//, ARGS... args){
+
+template <typename Ranks, typename FUNCTION, typename... ARGS>
+void MPI_execution_space(Ranks const& ranks, FUNCTION func, ARGS... args){
 	int rank ; 
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	if constexpr(is_same_v<Ranks, MpiRanks::OnlyMaster>){
 		// execution on rank 0 only
 		if (rank == 0 ){
-			func();//args...);
+			func(args...);
 			cout << "execution in rank " << rank << endl ; 
 		}
 	}
 	else if constexpr(is_same_v<Ranks, MpiRanks::All>){
-                        func();//args...);
+                        func(args...);
                         cout << "execution in rank " << rank << endl ;
 	}
 	else if constexpr(is_same_v<Ranks, MpiRanks::ExcludeMaster>){
 		if (rank != 0){
-                        func();//args...);
+                        func(args...);
                         cout << "execution in rank  " << rank << endl ;
 		}
 	}
@@ -65,7 +65,21 @@ template <typename Ranks>
 void hey2(Ranks const& ranks){
 	function_execution_space(ranks, hey);
 }
-*/
+
+
+class c_cli{
+public:
+	CLI::App app{"MUMPS Benchmark"};
+	string f_matrix = "../matrix/bcsstm12/bcsstm12.mtx";
+	string f_logs = "info.log";
+	auto get_cli(int argc, char** argv){
+		app.add_option("-m,--matrix", f_matrix, "Matrix path");
+		app.add_option("-l,--log", f_logs, "Logfile name");
+
+		CLI11_PARSE(app, argc, argv);
+		return 0;
+	}	
+};
 
 
 
@@ -100,8 +114,6 @@ public:
 	                write_map_to_file(file, rinfog, "rinfog");
 		}
 	}
-
-
 };
 
 template <typename INT, typename FLOAT>
@@ -137,6 +149,7 @@ public:
 	c_matrix<INT, FLOAT> mat ; 
 	vector<FLOAT> rhs ; 
 	c_mumps_information maps ; 
+	c_cli cli ; 
 
 	//----------------- RUN 
 	auto launch(){
@@ -152,6 +165,22 @@ public:
                 mumps.job = job ;
                 launch() ;
         }
+	auto analysis(){
+		// performsthe analysis phase
+		launch(1);
+	}
+	auto factorize(){
+		// performs the factorization phase
+		launch(2);
+	}
+	auto solve(){
+		// computes the solution
+		launch(3);
+	}
+	auto compute_all(){
+		// computes the analysis, the factorization and the solution phase
+		launch(6);
+	}
 	auto init_all_rank(){
 		mumps.par = 1 ; 
 		mumps.sym = 0 ; 
@@ -176,11 +205,21 @@ public:
                 }
 	}
 
+	auto get_cli(int argc, char** argv){
+		cli.get_cli(argc, argv);
+	}
+
 	auto init(){
 		init_all_rank() ; 
-		init_master_rank() ; 
+		init_master_rank();
+//		MPI_execution_space(MpiRanks::OnlyMaster(), hey) ;
+
 	}
 	///-------------- SETTERS
+	auto set_matrix(){
+		mat.read_matrix(cli.f_matrix);
+		set_matrix(mat);
+	}
 	auto set_matrix(c_matrix<INT, FLOAT> const& matrix){
 		this->mat = matrix ; 
 	}
@@ -237,15 +276,12 @@ public:
                         maps.rinfog[i] = static_cast<double>(mumps.rinfog[i]);
                 }
 		return maps ; 
-
 	}
 
 	auto dump(){
 		maps = get_all() ; 
-		maps.write_maps_to_file("info.log");
+		maps.write_maps_to_file(cli.f_logs);
 	}
-
-
 };
 
 
@@ -258,17 +294,17 @@ int main(int argc, char ** argv){
 //
 	MPI_Init(&argc, &argv) ; 
         c_mumps<DMUMPS_STRUC_C, int, double> mumps {};
+	mumps.get_cli(argc, argv);
 //	mumps.set_matrix("../matrix/bcsstm12/bcsstm12.mtx");
 	c_matrix<int, double> matrix ;
-        matrix.read_matrix("../matrix/bcsstm12/bcsstm12.mtx");	
-        matrix.read_matrix("../matrix/jagmesh4/jagmesh4.mtx");	
+//        matrix.read_matrix("../matrix/bcsstm12/bcsstm12.mtx");	
+//        matrix.read_matrix("../matrix/jagmesh4/jagmesh4.mtx");	
 	mumps.set_matrix(matrix);
-	
+	mumps.set_matrix();
 	mumps.init() ; 
-	mumps.launch(6);
+	mumps.compute_all();
 	mumps.dump();
 
-//function_execution_space(MpiRanks::ExcludeMaster(), hey) ; 	
 	MPI_Finalize();
 
 	return 0;
