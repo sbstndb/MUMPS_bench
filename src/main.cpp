@@ -310,12 +310,12 @@ public:
 		// here we use static_cast<long long int> but thast BAD !!
 		// we should use template for true bitwise getter
 		for (unsigned int i = 0 ; i < max_info ; i++){
-			maps.info[i] = static_cast<long long int>(mumps.info[i]);
-                        maps.infog[i] = static_cast<long long int>(mumps.infog[i]);			
+			maps.info[i+1] = static_cast<long long int>(mumps.info[i]);
+                        maps.infog[i+1] = static_cast<long long int>(mumps.infog[i]);			
 		}
                 for (unsigned int i = 0 ; i < max_info ; i++){
-                        maps.rinfo[i] = static_cast<double>(mumps.rinfo[i]);
-                        maps.rinfog[i] = static_cast<double>(mumps.rinfog[i]);
+                        maps.rinfo[i+1] = static_cast<double>(mumps.rinfo[i]);
+                        maps.rinfog[i+1] = static_cast<double>(mumps.rinfog[i]);
                 }
 		return maps ; 
 	}
