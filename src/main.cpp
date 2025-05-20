@@ -6,9 +6,8 @@
 
 #include <type_traits>
 
-#include "smumps_c.h"
-#include "dmumps_c.h"
-// add complex matrix ? 
+#include <smumps_c.h>
+#include <dmumps_c.h>
 #include <fast_matrix_market/fast_matrix_market.hpp>
 #include "../external/CLI11/include/CLI/CLI.hpp"
 
@@ -19,58 +18,12 @@ using namespace std ;
 #define JOB_END -2
 
 
-namespace MpiRanks {
-class All {
-	//using ranks = All ; 
-};
-class OnlyMaster {
-	//using ranks = OnlyMaster ;
-};	
-class ExcludeMaster {
-	//using ranks = ExcludeMaster ;
-};
-}
-// enable specific execution space thanks to template (todo?)
-//
-//
-
-template <typename Ranks, typename FUNCTION, typename... ARGS>
-void MPI_execution_space(Ranks const& ranks, FUNCTION func, ARGS... args){
-	int rank ; 
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	if constexpr(is_same_v<Ranks, MpiRanks::OnlyMaster>){
-		// execution on rank 0 only
-		if (rank == 0 ){
-			func(args...);
-			cout << "execution in rank " << rank << endl ; 
-		}
-	}
-	else if constexpr(is_same_v<Ranks, MpiRanks::All>){
-                        func(args...);
-                        cout << "execution in rank " << rank << endl ;
-	}
-	else if constexpr(is_same_v<Ranks, MpiRanks::ExcludeMaster>){
-		if (rank != 0){
-                        func(args...);
-                        cout << "execution in rank  " << rank << endl ;
-		}
-	}
-}
-
-void hey(){
-	cout << "hey " << endl ; 	
-}
-
-template <typename Ranks>
-void hey2(Ranks const& ranks){
-	function_execution_space(ranks, hey);
-}
-
-
 class c_cli{
 public:
 	CLI::App app{"MUMPS Benchmark"};
-	string f_matrix = "../matrix/bcsstm12/bcsstm12.mtx";
+        string f_matrix = "../matrix/garon1/garon1.mtx";	
+
+//	string f_matrix = "../matrix/bcsstm12/bcsstm12.mtx";
 	string f_logs = "info.log";
 	auto get_cli(int argc, char** argv){
 		app.add_option("-m,--matrix", f_matrix, "Matrix path");
@@ -83,7 +36,6 @@ public:
 
 
 
-// mumps structure
 class c_mumps_information{
 public:
 	// 
@@ -98,20 +50,20 @@ public:
 			file << type << pair.first << ": " << pair.second << endl ; 
 		}
 	}
-	// ISSUE : MUMPS can be launched in a MPU way hence r____ types are per rank values
+	// ISSUE : MUMPS can be launched in a MPI way hence r____ types are per rank values
 	// then we need to save these datas per rank
-	// i suggest to make a specific write_map for master rank and another for full rank with 
-	// keynames like ringog23r<rank>: ... at the moment
+	// I suggest to make a specific write_map for master rank and another for full rank with 
+	// keynames like rinfog23r<rank>: ... at the moment
 	void write_maps_to_file(string const& filename){
                 int rank ;
                 MPI_Comm_rank(MPI_COMM_WORLD, &rank) ;
                 if (rank == 0){
 			// only on master rank 
 			std::ofstream file(filename);
-			//write_map_to_file(file, info, "info");
 	                write_map_to_file(file, infog, "infog");
-	                //write_map_to_file(file, rinfo, "rinfo");
 	                write_map_to_file(file, rinfog, "rinfog");
+                        //write_map_to_file(file, info, "info");
+                        //write_map_to_file(file, rinfo, "rinfo");
 		}
 	}
 };
@@ -151,7 +103,6 @@ public:
 	c_mumps_information maps ; 
 	c_cli cli ; 
 
-	//----------------- RUN 
 	auto launch(){
 		if constexpr(is_same_v<XMUMPS_STRUC_C, DMUMPS_STRUC_C>){
 			dmumps_c(&mumps) ; 
@@ -212,7 +163,6 @@ public:
 	auto init(){
 		init_all_rank() ; 
 		init_master_rank();
-//		MPI_execution_space(MpiRanks::OnlyMaster(), hey) ;
 
 	}
 	///-------------- SETTERS
@@ -287,18 +237,11 @@ public:
 
 
 int main(int argc, char ** argv){
-//	c_mumps<DMUMPS_STRUC_C, int, double> mumps {};
-//
-//	template <MPI_execution_rank RANK, typename FUNCTION>///, typename... ARGS>
-//auto& function_execution_space(FUNCTION func){//, ARGS... args){
-//
 	MPI_Init(&argc, &argv) ; 
+
         c_mumps<DMUMPS_STRUC_C, int, double> mumps {};
 	mumps.get_cli(argc, argv);
-//	mumps.set_matrix("../matrix/bcsstm12/bcsstm12.mtx");
 	c_matrix<int, double> matrix ;
-//        matrix.read_matrix("../matrix/bcsstm12/bcsstm12.mtx");	
-//        matrix.read_matrix("../matrix/jagmesh4/jagmesh4.mtx");	
 	mumps.set_matrix(matrix);
 	mumps.set_matrix();
 	mumps.init() ; 
