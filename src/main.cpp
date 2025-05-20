@@ -11,27 +11,100 @@
 #include <fast_matrix_market/fast_matrix_market.hpp>
 #include "../external/CLI11/include/CLI/CLI.hpp"
 
-using namespace std ; 
 
-#define USE_COMM_WORLD -987654; // MUMPS default comm
-#define JOB_INIT -1 
-#define JOB_END -2
+constexpr int USE_COMM_WORLD = -987654;
+constexpr int JOB_INIT = -1 ; 
+constexpr int JOB_END = -2 ; 
+
+//#define USE_COMM_WORLD -987654; // MUMPS default comm
+//#define JOB_INIT -1 
+//#define JOB_END -2
 
 
 class c_cli{
 public:
 	CLI::App app{"MUMPS Benchmark"};
-        string f_matrix = "../matrix/garon1/garon1.mtx";	
+	std::string f_matrix = "../matrix/garon1/garon1.mtx";	
+//	std::string f_matrix = "../matrix/bcsstm12/bcsstm12.mtx";
+	std::string f_logs = "info.log";
 
-//	string f_matrix = "../matrix/bcsstm12/bcsstm12.mtx";
-	string f_logs = "info.log";
-	auto get_cli(int argc, char** argv){
-		app.add_option("-m,--matrix", f_matrix, "Matrix path");
-		app.add_option("-l,--log", f_logs, "Logfile name");
+	std::map<int, int> icntl_params ; 
+	std::map<int, double> cntl_params;
 
-		CLI11_PARSE(app, argc, argv);
-		return 0;
-	}	
+	double epsilon ; 
+
+	c_cli() = default ; 
+
+
+ int get_cli(int argc, char** argv) {
+        app.add_option("-m,--matrix", f_matrix, "Matrix path");
+        app.add_option("-l,--log", f_logs, "Logfile name");
+
+        app.add_option("-i,--icntl",
+                       [this](CLI::results_t res_vector_of_strings){
+                           if (res_vector_of_strings.size() != 2) {
+                               return false;
+                           }
+                           try {
+                               int key = std::stoi(res_vector_of_strings[0]);
+                               int value = std::stoi(res_vector_of_strings[1]);
+
+                               this->icntl_params[key] = value;
+                               return true;
+                           } catch (const std::invalid_argument& e) {
+                               std::cerr << "Error parsing ICNTL parameter: invalid number format for '"
+                                         << res_vector_of_strings[0] << "' or '" << res_vector_of_strings[1] << "'. " << e.what() << std::endl;
+                               return false; 
+                           } catch (const std::out_of_range& e) {
+                                std::cerr << "Error parsing ICNTL parameter: value '" << res_vector_of_strings[1]
+                                          << "' out of integer range. " << e.what() << std::endl;
+                                return false; 
+                           }
+                       },
+                       "ICNTL parameters as key-value pairs (int key, int value). Repeat option for multiple pairs (e.g., -i 35 2 -i 36 1).")
+           ->type_name("INT INT") 
+           ->expected(2);        
+
+        app.add_option("-c,--cntl",
+                       [this](CLI::results_t res_vector_of_strings){
+                           if (res_vector_of_strings.size() != 2) {
+                               return false;
+                           }
+                           try {
+                               int key = std::stoi(res_vector_of_strings[0]); 
+                               double value = std::stod(res_vector_of_strings[1]); 
+
+                               this->cntl_params[key] = value; 
+                               return true; 
+                           } catch (const std::invalid_argument& e) {
+                               std::cerr << "Error parsing CNTL parameter: invalid number format for '"
+                                         << res_vector_of_strings[0] << "' (int) or '" << res_vector_of_strings[1] << "' (double). " << e.what() << std::endl;
+                               return false; 
+                           } catch (const std::out_of_range& e) {
+                                std::cerr << "Error parsing CNTL parameter: value '" << res_vector_of_strings[1]
+                                          << "' out of double range. " << e.what() << std::endl;
+                                return false; 
+                           }
+                       },
+                       "CNTL parameters as key-value pairs (int key, double value). Repeat option for multiple pairs (e.g., -c 7 0.001 -c 8 1e-5).")
+           ->type_name("INT DOUBLE") 
+           ->expected(2);          
+
+
+        app.add_option("-b,--blr", epsilon, "add BLR epsilon value");
+
+
+        try {
+            app.parse(argc, argv);
+
+        } catch (const CLI::ParseError &e) {
+            app.exit(e);
+            return 1; // Indicate failure
+        }
+
+        return 0; // Indicate success
+    }
+
 };
 
 
@@ -39,31 +112,38 @@ public:
 class c_mumps_information{
 public:
 	// 
-	unordered_map<int, long long int> info ; 
-	unordered_map<int, long long int> infog ; 
-	unordered_map<int, double> rinfo; 
-	unordered_map<int, double> rinfog;
+	std::unordered_map<int, long long int> info ; 
+	std::unordered_map<int, long long int> infog ; 
+	std::unordered_map<int, double> rinfo; 
+	std::unordered_map<int, double> rinfog;
+
+	c_mumps_information() = default; 
 
 	template <typename K, typename V>
-	void write_map_to_file(ostream& file, const unordered_map<K, V>& map, const string& type){
+	void write_map_to_file(std::ostream& file, const std::unordered_map<K, V>& map, const std::string& type){
 		for (const auto& pair : map){
-			file << type << pair.first << ": " << pair.second << endl ; 
+			file << type << pair.first << ": " << pair.second << std::endl ; 
 		}
 	}
 	// ISSUE : MUMPS can be launched in a MPI way hence r____ types are per rank values
 	// then we need to save these datas per rank
 	// I suggest to make a specific write_map for master rank and another for full rank with 
 	// keynames like rinfog23r<rank>: ... at the moment
-	void write_maps_to_file(string const& filename){
+	void write_maps_to_file(std::string const& filename){
                 int rank ;
                 MPI_Comm_rank(MPI_COMM_WORLD, &rank) ;
                 if (rank == 0){
 			// only on master rank 
 			std::ofstream file(filename);
-	                write_map_to_file(file, infog, "infog");
-	                write_map_to_file(file, rinfog, "rinfog");
-                        //write_map_to_file(file, info, "info");
-                        //write_map_to_file(file, rinfo, "rinfo");
+			if (!file.is_open()){
+				std::cerr << "Errror : cound not open log file" << filename << std::endl ; 
+			}
+			else {
+		                write_map_to_file(file, infog, "infog");
+		                write_map_to_file(file, rinfog, "rinfog");
+	                        //write_map_to_file(file, info, "info");
+	                        //write_map_to_file(file, rinfo, "rinfo");
+			}
 		}
 	}
 };
@@ -73,11 +153,13 @@ class c_matrix {
 public:
 	INT nrows = 0 ; 
 	INT ncols = 0 ; 
-	vector<INT> rows, cols;
-	vector<FLOAT> vals;
+	std::vector<INT> rows, cols;
+	std::vector<FLOAT> vals;
 
-	auto read_matrix(string const& filename){
-		ifstream mfile ; 
+	c_matrix() = default ; 
+
+	auto read_matrix(std::string const& filename){
+		std::ifstream mfile ; 
 		mfile.open(filename);
 		fast_matrix_market::read_options options; 
 		options.num_threads=1;
@@ -99,15 +181,29 @@ public:
 	XMUMPS_STRUC_C mumps; 
 	MPI_Comm comm = USE_COMM_WORLD ; 
 	c_matrix<INT, FLOAT> mat ; 
-	vector<FLOAT> rhs ; 
+	std::vector<FLOAT> rhs ; 
 	c_mumps_information maps ; 
 	c_cli cli ; 
 
+	auto apply_cli_params(){
+		for (const auto& param : cli.icntl_params){
+			set_icntl(param.first, param.second) ; 
+		
+		}
+                for (const auto& param : cli.cntl_params){
+                        set_cntl(param.first, param.second) ;
+                }
+		if (cli.epsilon != 0.0){
+			set_cntl(7, cli.epsilon); 
+			set_icntl(35, 2); 
+		}
+	}
+
 	auto launch(){
-		if constexpr(is_same_v<XMUMPS_STRUC_C, DMUMPS_STRUC_C>){
+		if constexpr(std::is_same_v<XMUMPS_STRUC_C, DMUMPS_STRUC_C>){
 			dmumps_c(&mumps) ; 
 		}
-		else if constexpr(is_same_v<XMUMPS_STRUC_C, SMUMPS_STRUC_C>){
+		else if constexpr(std::is_same_v<XMUMPS_STRUC_C, SMUMPS_STRUC_C>){
 			smumps_c(&mumps);
 		}
 	}
@@ -117,19 +213,15 @@ public:
                 launch() ;
         }
 	auto analysis(){
-		// performsthe analysis phase
 		launch(1);
 	}
 	auto factorize(){
-		// performs the factorization phase
 		launch(2);
 	}
 	auto solve(){
-		// computes the solution
 		launch(3);
 	}
 	auto compute_all(){
-		// computes the analysis, the factorization and the solution phase
 		launch(6);
 	}
 	auto init_all_rank(){
@@ -173,7 +265,7 @@ public:
 	auto set_matrix(c_matrix<INT, FLOAT> const& matrix){
 		this->mat = matrix ; 
 	}
-	auto set_matrix(string const& filename){
+	auto set_matrix(std::string const& filename){
 //		this->matrix = c_matrix<INT, FLOAT>::read_matrix(filename);
 		using cm = c_matrix<INT, FLOAT>;
 		set_matrix(cm::read_matrix(filename));
@@ -182,14 +274,14 @@ public:
 		rhs.assign(mat.nrows, 1.0) ; 
 	}
 
-	auto set_icntl(auto& key, auto& value){
-		mumps.icntl[key-1] = static_cast<INT>(value) ; 
+	auto set_icntl(int key, INT value){
+		mumps.icntl[key-1] = value ; 
 	}
-	auto set_cntl(auto& key, auto& value){
-		mumps.cntl[key-1] = static_cast<FLOAT>(value);
+	auto set_cntl(int key, FLOAT value){
+		mumps.cntl[key-1] = value;
 	}
-	auto set_keep(auto& key, auto& value){
-		mumps.keep[key-1] = static_cast<INT>(value);
+	auto set_keep(int key, INT value){
+		mumps.keep[key-1] = value;
 	}
 	auto set_blr(auto& epsilon){
 		set_icntl(35,2);
@@ -242,9 +334,10 @@ int main(int argc, char ** argv){
         c_mumps<DMUMPS_STRUC_C, int, double> mumps {};
 	mumps.get_cli(argc, argv);
 	c_matrix<int, double> matrix ;
-	mumps.set_matrix(matrix);
 	mumps.set_matrix();
 	mumps.init() ; 
+        mumps.apply_cli_params();
+
 	mumps.compute_all();
 	mumps.dump();
 
