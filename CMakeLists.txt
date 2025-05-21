@@ -25,8 +25,10 @@ link_directories(${MUMPS_DIR}/lib)  # ou lib64 si c’est là
 
 set(SOURCES
 	src/main.cpp
-
-	
+	src/cli.cpp
+	src/mumps_log.cpp
+	src/matrix_utils.cpp
+	src/mumps_solver.cpp
 )
 
 set(CMAKE_FLAGS "-DCMAKE_CXX_FLAGS=-qopenmp")
