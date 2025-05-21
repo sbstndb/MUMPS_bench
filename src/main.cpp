@@ -33,125 +33,64 @@ public:
 
   c_cli() = default;
 
-  int get_cli(int argc, char **argv) {
+
+    template <typename TValue>
+    bool parse_key_value_option(
+        CLI::results_t res_vector_of_strings,
+        std::map<int, TValue>& target_map,
+        const std::string& option_name)
+    {
+        if (res_vector_of_strings.size() % 2 != 0) {
+            std::cerr << "Error: " << option_name << " expects arguments in pairs (key-value), "
+                      << "but the total number of arguments received ("
+                      << res_vector_of_strings.size() << ") is not even." << std::endl;
+            return false;
+        }
+        for (size_t i = 0; i < res_vector_of_strings.size(); i += 2) {
+            try {
+                int key = std::stoi(res_vector_of_strings[i]);
+                TValue value;
+                if constexpr (std::is_same_v<TValue, int>) {
+                    value = std::stoi(res_vector_of_strings[i + 1]);
+                } else if constexpr (std::is_same_v<TValue, double>) {
+                    value = std::stod(res_vector_of_strings[i + 1]);
+                } else {
+                    // Should not happen with current usage
+                    static_assert(std::is_same_v<TValue, int> || std::is_same_v<TValue, double>, "Unsupported value type");
+                }
+                target_map[key] = value;
+            } catch (const std::invalid_argument& e) {
+                std::cerr << "Error parsing " << option_name << " parameter pair "
+                          << res_vector_of_strings[i] << " " << res_vector_of_strings[i+1]
+                          << ": invalid number format. " << e.what() << std::endl;
+                return false;
+            } catch (const std::out_of_range& e) {
+                std::cerr << "Error parsing " << option_name << " parameter pair "
+                          << res_vector_of_strings[i] << " " << res_vector_of_strings[i+1]
+                          << ": number out of range. " << e.what() << std::endl;
+                return false;
+            }
+        }
+        return true;
+    }
+
+	
+    int get_cli(int argc, char **argv) {
     app.add_option("-m,--matrix", f_matrix, "Matrix path");
     app.add_option("-l,--log", f_logs, "Logfile name");
 
-    app.add_option(
+        app.add_option(
            "-i,--icntl",
-           [this](CLI::results_t res_vector_of_strings) {
-             // This check ensures the total number of arguments is a multiple
-             // of 2. It's useful even with expected(2) as a safety check.
-             if (res_vector_of_strings.size() % 2 != 0) {
-               std::cerr
-                   << "Error: --icntl expects arguments in pairs (key-value), "
-                      "but the total number of arguments received ("
-                   << res_vector_of_strings.size() << ") is not even."
-                   << std::endl;
-               return false; // Indicate validation failure
-             }
+           [this](CLI::results_t res) { return parse_key_value_option(res, this->icntl_params, "--icntl"); },
+           "ICNTL parameters...")
+           ->type_name("INT INT")->expected(2)->take_all();
 
-             // Process arguments in pairs, as they are accumulated from all
-             // uses
-             for (size_t i = 0; i < res_vector_of_strings.size(); i += 2) {
-               try {
-                 int key = std::stoi(res_vector_of_strings[i]);
-                 int value = std::stoi(res_vector_of_strings[i + 1]);
-
-                 // Store the parsed key-value pair
-                 this->icntl_params[key] = value;
-
-               } catch (const std::invalid_argument &e) {
-                 // Error parsing the pair starting at index i
-                 std::cerr << "Error parsing ICNTL parameter pair --icntl "
-                           << res_vector_of_strings[i] << " "
-                           << res_vector_of_strings[i + 1]
-                           << " (from argument position " << i + 1 << "/"
-                           << i + 2 << "): invalid number format. " << e.what()
-                           << std::endl;
-                 return false; // Indicate validation failure
-               } catch (const std::out_of_range &e) {
-                 // Out of range could apply to key or value
-                 std::cerr << "Error parsing ICNTL parameter pair --icntl "
-                           << res_vector_of_strings[i] << " "
-                           << res_vector_of_strings[i + 1]
-                           << " (from argument position " << i + 1 << "/"
-                           << i + 2 << "): number out of integer range. "
-                           << e.what() << std::endl;
-                 return false; // Indicate validation failure
-               }
-             }
-
-             // If the loop completes without returning false, all pairs were
-             // parsed successfully
-             return true;
-           },
-           "ICNTL parameters as key-value pairs (int key, int value). Repeat "
-           "option for multiple pairs (e.g., -i 35 2 -i 36 1). Arguments from "
-           "multiple uses are combined.")
-        ->type_name("INT INT") // Still good for help text
-        ->expected(2) // <-- Keep this: Each time -i or --icntl appears, expect
-                      // 2 arguments
-        //		->allow_multiple_occurrences();
-        ->take_all();
-
-    app.add_option(
+        app.add_option(
            "-c,--cntl",
-           [this](CLI::results_t res_vector_of_strings) {
-             // This check ensures the total number of arguments is a multiple
-             // of 2. It's useful even with expected(2) as a safety check.
-             if (res_vector_of_strings.size() % 2 != 0) {
-               std::cerr
-                   << "Error: --cntl expects arguments in pairs (key-value), "
-                      "but the total number of arguments received ("
-                   << res_vector_of_strings.size() << ") is not even."
-                   << std::endl;
-               return false; // Indicate validation failure
-             }
-
-             // Process arguments in pairs, as they are accumulated from all
-             // uses
-             for (size_t i = 0; i < res_vector_of_strings.size(); i += 2) {
-               try {
-                 int key = std::stoi(res_vector_of_strings[i]);
-                 double value = std::stod(res_vector_of_strings[i + 1]);
-
-                 // Store the parsed key-value pair
-                 this->cntl_params[key] = value;
-
-               } catch (const std::invalid_argument &e) {
-                 // Error parsing the pair starting at index i
-                 std::cerr << "Error parsing CNTL parameter pair --cntl "
-                           << res_vector_of_strings[i] << " "
-                           << res_vector_of_strings[i + 1]
-                           << " (from argument position " << i + 1 << "/"
-                           << i + 2 << "): invalid number format. " << e.what()
-                           << std::endl;
-                 return false; // Indicate validation failure
-               } catch (const std::out_of_range &e) {
-                 // Out of range could apply to key or value
-                 std::cerr << "Error parsing ICNTL parameter pair --cntl "
-                           << res_vector_of_strings[i] << " "
-                           << res_vector_of_strings[i + 1]
-                           << " (from argument position " << i + 1 << "/"
-                           << i + 2 << "): number out of integer range. "
-                           << e.what() << std::endl;
-                 return false; // Indicate validation failure
-               }
-             }
-
-             // If the loop completes without returning false, all pairs were
-             // parsed successfully
-             return true;
-           },
-           "CNTL parameters as key-value pairs (int key, double value). Repeat "
-           "option for multiple pairs (e.g., -i 7 0.001). Arguments from "
-           "multiple uses are combined.")
-        ->type_name("INT DOUBLE") // Still good for help text
-        ->expected(2) // <-- Keep this: Each time -i or --cntl appears, expect 2
-                      // arguments
-        //              ->allow_multiple_occurrences();
-        ->take_all();
+           [this](CLI::results_t res) { return parse_key_value_option(res, this->cntl_params, "--cntl"); },
+           "CNTL parameters...")
+           ->type_name("INT DOUBLE")->expected(2)->take_all();
+         
 
     app.add_option("-b,--blr", epsilon, "add BLR epsilon value");
 
