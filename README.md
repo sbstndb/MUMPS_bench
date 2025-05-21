@@ -57,3 +57,8 @@ mpirun -np 4 ./MUMPS_bench
 mpirun -np 4 ./MUMPS_bench -m /path/to/matrix.mtx -l mumps.log --icntl 35 2 --cntl 7 0.01
 ```
 
+## TODO 
+- [ ] Support for additional matrix formats (e.g. Harwell-Boeing, uncompressed CSR/CSC/COO)
+- [ ] JSON Log output: Implement an option to export all collected MUMPS logs into a structured json format for easier parsing
+- [ ] HPC metrics Collection: Integrate mechanisms to collect low-level hardware performance counters (e.g. CPU cycles, cache-misses, floating-point operations)
+- [ ] `KEEP` parameters support: Add command-line options for `--keep` to allow users to set MUMPS experimental `KEEP` parameters, which control various internal options. 
