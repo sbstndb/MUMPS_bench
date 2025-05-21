@@ -15,9 +15,9 @@ constexpr int USE_COMM_WORLD = -987654;
 constexpr int JOB_INIT = -1;
 constexpr int JOB_END = -2;
 
-// #define USE_COMM_WORLD -987654; // MUMPS default comm
-// #define JOB_INIT -1
-// #define JOB_END -2
+constexpr int MUMPS_INFO_SIZE = 80;
+constexpr int MUMPS_RINFO_SIZE = 40; 
+
 
 class c_cli {
 public:
@@ -128,7 +128,7 @@ public:
   // values then we need to save these datas per rank I suggest to make a
   // specific write_map for master rank and another for full rank with keynames
   // like rinfog23r<rank>: ... at the moment
-  void write_maps_to_file(std::string const &filename) {
+  void write_global_maps_to_file(std::string const &filename) {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     if (rank == 0) {
@@ -140,12 +140,31 @@ public:
       } else {
         write_map_to_file(file, infog, "infog");
         write_map_to_file(file, rinfog, "rinfog");
-        // write_map_to_file(file, info, "info");
-        // write_map_to_file(file, rinfo, "rinfo");
+      }
+    }
+  }
+
+  void write_local_maps_to_file(std::string const &filename, int rank_id) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == 0) {
+      // only on master rank
+      std::ofstream file(filename);
+      if (!file.is_open()) {
+        std::cerr << "Errror : cound not open log file" << filename
+                  << std::endl;
+      } else {
+	std::string info_prefix = "info_r" + std::to_string(rank_id) + "_" ; 
+        std::string rinfo_prefix = "rinfo_r" + std::to_string(rank_id) + "_" ;
+	
+        write_map_to_file(file, info, info_prefix);
+        write_map_to_file(file, rinfo, rinfo_prefix);
       }
     }
   }
 };
+
+
 
 template <typename INT, typename FLOAT> class c_matrix {
 public:
@@ -174,6 +193,7 @@ public:
   c_matrix<INT, FLOAT> mat;
   std::vector<FLOAT> rhs;
   c_mumps_information maps;
+  std::vector<c_mumps_information> all_ranks_local_maps;
   c_cli cli;
 
   auto apply_cli_params() {
@@ -270,20 +290,23 @@ public:
     c_mumps_information maps;
     // here we use static_cast<long long int> but thast BAD !!
     // we should use template for true bitwise getter
-    for (unsigned int i = 0; i < max_info; i++) {
+    for (unsigned int i = 0; i < MUMPS_INFO_SIZE; i++) {
       maps.info[i + 1] = static_cast<long long int>(mumps.info[i]);
       maps.infog[i + 1] = static_cast<long long int>(mumps.infog[i]);
     }
-    for (unsigned int i = 0; i < max_info; i++) {
+    for (unsigned int i = 0; i < MUMPS_INFO_SIZE; i++) {
       maps.rinfo[i + 1] = static_cast<double>(mumps.rinfo[i]);
       maps.rinfog[i + 1] = static_cast<double>(mumps.rinfog[i]);
     }
     return maps;
   }
 
+
+
   auto dump() {
     maps = get_all();
-    maps.write_maps_to_file(cli.f_logs);
+    // add MPI transfer of info.rinfo data
+    maps.write_global_maps_to_file(cli.f_logs);
   }
 };
 
