@@ -4,7 +4,7 @@ This project provides a C++ wrapper for the MUMPS library desinged for benchmark
 
 ## Features
 - Flexible Matrix Input: Reads sparse matrices in Matrix Market format (.mtx)
-- Command-Line intergace (CLI): Configurable via CLI11 for matrux path, log file, and various ICNTL or CNTL parameters
+- Command-Line intergace (CLI): Configurable via CLI11 for matrix path, log file, and various ICNTL or CNTL parameters
 - Information logging: Dumps MUMPS INFO, INFOG, RINFO and RINFOG parameters to a specified log file
 
 ## Prerequisities
