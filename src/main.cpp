@@ -98,7 +98,7 @@ app.add_option("-c,--cntl",
                            for (size_t i = 0; i < res_vector_of_strings.size(); i += 2) {
                                try {
                                    int key = std::stoi(res_vector_of_strings[i]);
-                                   int value = std::stoi(res_vector_of_strings[i+1]);
+                                   double value = std::stod(res_vector_of_strings[i+1]);
 
                                    // Store the parsed key-value pair
                                    this->cntl_params[key] = value;
