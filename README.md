@@ -1,13 +1,13 @@
-MUMPS benchmark
+# MUMPS benchmark
 
 This project provides a C++ wrapper for the MUMPS library desinged for benchmarking its performance with various inputs and configuration parameters. It leverages MPI for parallel execution and OpenMP for multithreading. 
 
-# Features
+## Features
 - Flexible Matrix Input: Reads sparse matrices in Matrix Market format (.mtx)
 - Command-Line intergace (CLI): Configurable via CLI11 for matrux path, log file, and various ICNTL or CNTL parameters
 - Information logging: Dumps MUMPS INFO, INFOG, RINFO and RINFOG parameters to a specified log file
 
-# Prerequisities
+## Prerequisities
 Before building and running the project, ensure you have the following installed:
 - MPI Implementation
 - MUMPS Library
@@ -15,7 +15,7 @@ Before building and running the project, ensure you have the following installed
 - CMake: Version 3.0 required
 - Fortran Compiler required by MUMPS
 
-# Building the project 
+## Building the project 
 1. Clone the Repository:
 ```
 git clone https://github.com/sbstndb/MUMPS_bench
@@ -35,7 +35,7 @@ make -j
 ```
 This will create an executable named `MUMPS_bench` in the build directory. 
 
-# Usage
+## Usage
 The `MUMPS_bench` executabke can be run with MPI. Here is how to use its command-line options: 
 
 ```
@@ -48,7 +48,7 @@ mpirun -np <num_process> ./MUMPS_bench [options]
 - -b, --blr <EPSILON>
 
 
-# Examples
+## Examples
 ```
 mpirun -np 4 ./MUMPS_bench
 ```
