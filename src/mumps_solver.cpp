@@ -10,10 +10,13 @@
 #include <smumps_c.h>
 
 // Constructor
+#include <cstring> // For memset
+
 template <typename XMUMPS_STRUC_C, typename INT, typename FLOAT>
 c_mumps<XMUMPS_STRUC_C, INT, FLOAT>::c_mumps() : comm(USE_COMM_WORLD) {
+    memset(&mumps, 0, sizeof(XMUMPS_STRUC_C));
     // cli, maps, mat members are default-constructed.
-    // mumps struct is default-initialized (implicitly).
+    // mumps struct is now zero-initialized.
 }
 
 // Methods
@@ -67,7 +70,7 @@ template <typename XMUMPS_STRUC_C, typename INT, typename FLOAT>
 void c_mumps<XMUMPS_STRUC_C, INT, FLOAT>::init_all_rank() {
     mumps.par = 1; // Host involved in computations
     mumps.sym = 0; // Unsymmetric matrix
-    mumps.comm_fortran = MPI_Comm_c2f(MPI_COMM_WORLD); // Directly use MPI_COMM_WORLD
+    mumps.comm_fortran = comm; // Assign MPI_Comm directly to int (Fortran handle)
     launch(JOB_INIT);
 }
 
