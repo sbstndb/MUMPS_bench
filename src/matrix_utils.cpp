@@ -34,4 +34,4 @@ c_matrix<INT, FLOAT>* c_matrix<INT, FLOAT>::read_matrix(std::string const &filen
 template class c_matrix<int, double>;
 // Add other instantiations if c_matrix is used with other types, e.g.:
 // template class c_matrix<long, double>;
-// template class c_matrix<int, float>;
+template class c_matrix<int, float>;
