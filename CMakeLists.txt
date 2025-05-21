@@ -33,6 +33,6 @@ set(SOURCES
 
 set(CMAKE_FLAGS "-DCMAKE_CXX_FLAGS=-qopenmp")
 add_executable(MUMPS_bench ${SOURCES})
-target_link_libraries(MUMPS_bench OpenMP::OpenMP_CXX MPI::MPI_Fortran MPI::MPI_CXX mumps_common pord smumps dmumps fast_matrix_market)
+target_link_libraries(MUMPS_bench OpenMP::OpenMP_CXX MPI::MPI_Fortran MPI::MPI_CXX mumps_common pord smumps dmumps fast_matrix_market CLI11::CLI11)
 
 
