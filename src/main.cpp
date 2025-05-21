@@ -229,7 +229,7 @@ public:
     }
   }
 
-  auto get_cli(int argc, char **argv) { cli.get_cli(argc, argv); }
+  auto get_cli(int argc, char **argv) { return cli.get_cli(argc, argv); }
 
   auto init() {
     init_all_rank();
@@ -290,15 +290,28 @@ public:
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
 
-  c_mumps<DMUMPS_STRUC_C, int, double> mumps{};
-  mumps.get_cli(argc, argv);
-  c_matrix<int, double> matrix;
-  mumps.set_matrix();
-  mumps.init();
-  mumps.apply_cli_params();
+  int rank ; 
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  mumps.compute_all();
-  mumps.dump();
+  c_mumps<DMUMPS_STRUC_C, int, double> mumps_solver{};
+  if (mumps_solver.get_cli(argc, argv) != 0){
+	MPI_Finalize() ; 
+	return 1; 
+  }
+  c_matrix<int, double> matrix;
+  mumps_solver.set_matrix();
+  mumps_solver.init();
+  mumps_solver.apply_cli_params();
+
+
+  if (rank == 0){
+	std::cout << "Starting MUMPS computation..." << std::endl ; 
+  }
+  mumps_solver.compute_all();
+  if (rank == 0){
+	std::cout << "MUMPS Computation finished..." << std::endl ; 
+  }
+  mumps_solver.dump();
 
   MPI_Finalize();
 
