@@ -67,7 +67,7 @@ template <typename XMUMPS_STRUC_C, typename INT, typename FLOAT>
 void c_mumps<XMUMPS_STRUC_C, INT, FLOAT>::init_all_rank() {
     mumps.par = 1; // Host involved in computations
     mumps.sym = 0; // Unsymmetric matrix
-    mumps.comm_fortran = MPI_Comm_c2f(comm); // Use the communicator set in the c_mumps object
+    mumps.comm_fortran = MPI_Comm_c2f(MPI_COMM_WORLD); // Directly use MPI_COMM_WORLD
     launch(JOB_INIT);
 }
 
