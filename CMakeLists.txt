@@ -14,22 +14,18 @@ option(BUILD_SHARED_LIBS ON)
 add_subdirectory(external/CLI11)
 add_subdirectory(external/fast_matrix_market)
 
-
-# Chemins vers ton installation MUMPS
-set(MUMPS_DIR /home/sbstndbs/spack_for_samurai/opt/spack/linux-ubuntu24.10-skylake/gcc-14.2.0/mumps-5.7.3-2zyk6mffyj3vgipoznb336mixxx5rt3u)
+# Path to yout MUMPS installation. 
+# Example for a Spack installation. Please edit this folowing line according to yout needs
+#set(MUMPS_DIR /home/sbstndbs/spack_for_samurai/opt/spack/linux-ubuntu24.10-skylake/gcc-14.2.0/mumps-5.7.3-2zyk6mffyj3vgipoznb336mixxx5rt3u)
 
 include_directories(${MUMPS_DIR}/include)
-link_directories(${MUMPS_DIR}/lib)  # ou lib64 si c’est là
-
-
+link_directories(${MUMPS_DIR}/lib) 
 
 set(SOURCES
-	src/main.cpp
-
-	
+	src/main.cpp	
 )
 
-set(CMAKE_FLAGS "-DCMAKE_CXX_FLAGS=-qopenmp")
+set(CMAKE_FLAGS "-DCMAKE_CXX_FLAGS=-qopenmp -O3")
 add_executable(MUMPS_bench ${SOURCES})
 target_link_libraries(MUMPS_bench OpenMP::OpenMP_CXX MPI::MPI_Fortran MPI::MPI_CXX mumps_common pord smumps dmumps fast_matrix_market)
 
