@@ -119,6 +119,12 @@ public:
   std::unordered_map<int, double> rinfo;
   std::unordered_map<int, double> rinfog;
 
+  double time_analysis_s = 0.0;
+  double time_factorize_s = 0.0;
+  double time_solve_s = 0.0;
+  double time_total_s = 0.0; // Temps total des 3 phases
+
+
   c_mumps_information() = default;
 
   template <typename K, typename V>
@@ -181,6 +187,11 @@ public:
 	json j; 
 	j["infog"] = map_to_json(infog) ; 
         j["rinfog"] = map_to_json(rinfog) ;
+
+	j["elapsed_analysis"] = time_analysis_s; 
+        j["elapsed_factorize"] = time_factorize_s;
+        j["elapsed_solve"] = time_solve_s;
+        j["elapsed_total"] = time_total_s;
 	return j ; 
   }
 
@@ -219,6 +230,11 @@ public:
   std::vector<c_mumps_information> all_ranks_local_maps;
   c_cli cli;
 
+  std::chrono::duration<double> duration_analysis;
+  std::chrono::duration<double> duration_factorize;
+  std::chrono::duration<double> duration_solve;
+  std::chrono::duration<double> duration_all;
+
   auto apply_cli_params() {
     for (const auto &param : cli.icntl_params) {
       set_icntl(param.first, param.second);
@@ -244,10 +260,32 @@ public:
     mumps.job = job;
     launch();
   }
-  auto analysis() { launch(1); }
-  auto factorize() { launch(2); }
-  auto solve() { launch(3); }
-  auto compute_all() { launch(6); }
+  auto analysis() { 
+	  auto start = std::chrono::high_resolution_clock::now(); 
+	  launch(1); 
+	  auto end = std::chrono::high_resolution_clock::now();
+	duration_analysis = end - start;
+  }
+  auto factorize() { 
+          auto start = std::chrono::high_resolution_clock::now();	  
+	  launch(2);
+          auto end = std::chrono::high_resolution_clock::now();
+        duration_factorize = end - start	  ;
+  }
+  auto solve() { 
+          auto start = std::chrono::high_resolution_clock::now(); 
+	  launch(3);
+          auto end = std::chrono::high_resolution_clock::now();
+        duration_solve = end - start	  ;
+  }
+  auto compute_all() { 
+          auto start = std::chrono::high_resolution_clock::now();
+	  analysis();
+	  factorize();
+	  solve();
+          auto end = std::chrono::high_resolution_clock::now();
+        duration_all = end - start	  ;
+  }
   auto init_all_rank() {
     mumps.par = 1;
     mumps.sym = 0;
@@ -321,6 +359,12 @@ public:
       maps.rinfo[i + 1] = static_cast<double>(mumps.rinfo[i]);
       maps.rinfog[i + 1] = static_cast<double>(mumps.rinfog[i]);
     }
+	maps.time_analysis_s = duration_analysis.count(); 
+	
+        maps.time_analysis_s = duration_analysis.count();
+        maps.time_factorize_s = duration_factorize.count();
+        maps.time_solve_s = duration_solve.count();
+        maps.time_total_s = duration_analysis.count() + duration_factorize.count() + duration_solve.count();
     return maps;
   }
 
@@ -333,6 +377,7 @@ public:
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);    
     if (rank ==0){
+
 	    json final_output = maps.to_json_global_only() ;  
 	    std::ofstream file(cli.f_logs) ; 
 	    file << final_output.dump(4) ; 
