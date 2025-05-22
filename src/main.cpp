@@ -276,6 +276,11 @@ public:
           auto start = std::chrono::high_resolution_clock::now(); 
 	  launch(3);
           auto end = std::chrono::high_resolution_clock::now();
+	  // icntl11 to 2 to compute the error etc
+	  auto old_value = mumps.icntl[11-1]; 
+	  set_icntl(11, 2);
+	  launch(3) ; 
+	  set_icntl(11, old_value);
         duration_solve = end - start	  ;
   }
   auto compute_all() { 
