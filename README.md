@@ -42,7 +42,7 @@ The `MUMPS_bench` executabke can be run with MPI. Here is how to use its command
 mpirun -np <num_process> ./MUMPS_bench [options]
 ```
 - -m, --marix <path_to_matrix.mtx>:
-- -l, --log <logfile.log>
+- -l, --log <logfile.json>
 - -i, --icntl <KEY> <VALUE>
 - -c, --cntl <KEY> <VALUE>
 - -b, --blr <EPSILON>
