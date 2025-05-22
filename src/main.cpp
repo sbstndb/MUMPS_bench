@@ -11,6 +11,11 @@
 #include <fast_matrix_market/fast_matrix_market.hpp>
 #include <smumps_c.h>
 
+
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
+
 constexpr int USE_COMM_WORLD = -987654;
 constexpr int JOB_INIT = -1;
 constexpr int JOB_END = -2;
@@ -24,7 +29,7 @@ public:
   CLI::App app{"MUMPS Benchmark"};
   std::string f_matrix = "../matrix/garon1/garon1.mtx";
   //	std::string f_matrix = "../matrix/bcsstm12/bcsstm12.mtx";
-  std::string f_logs = "info.log";
+  std::string f_logs = "info.json";
 
   std::map<int, int> icntl_params;
   std::map<int, double> cntl_params;
@@ -162,6 +167,24 @@ public:
       }
     }
   }
+
+  template <typename K, typename V>
+  json map_to_json(const std::unordered_map<K, V>& map_data) const {
+	json j_map = json::object();
+	for (const auto& pair: map_data){
+		j_map[std::to_string(pair.first)] = pair.second ; 
+	}
+	return j_map ; 
+  }
+
+  json to_json_global_only() const {
+	json j; 
+	j["infog"] = map_to_json(infog) ; 
+        j["rinfog"] = map_to_json(rinfog) ;
+	return j ; 
+  }
+
+
 };
 
 
@@ -306,7 +329,17 @@ public:
   auto dump() {
     maps = get_all();
     // add MPI transfer of info.rinfo data
-    maps.write_global_maps_to_file(cli.f_logs);
+    //
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);    
+    if (rank ==0){
+	    json final_output = maps.to_json_global_only() ;  
+	    std::ofstream file(cli.f_logs) ; 
+	    file << final_output.dump(4) ; 
+   }
+    
+
+//    maps.write_global_maps_to_file(cli.f_logs);
   }
 };
 
