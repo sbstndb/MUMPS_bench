@@ -14,9 +14,11 @@ option(BUILD_SHARED_LIBS ON)
 add_subdirectory(external/CLI11)
 add_subdirectory(external/fast_matrix_market)
 
+find_package(nlohmann_json)
+
 # Path to yout MUMPS installation. 
 # Example for a Spack installation. Please edit this folowing line according to yout needs
-#set(MUMPS_DIR /home/sbstndbs/spack_for_samurai/opt/spack/linux-ubuntu24.10-skylake/gcc-14.2.0/mumps-5.7.3-2zyk6mffyj3vgipoznb336mixxx5rt3u)
+set(MUMPS_DIR /home/sbstndbs/spack_for_samurai/opt/spack/linux-ubuntu24.10-skylake/gcc-14.2.0/mumps-5.7.3-2zyk6mffyj3vgipoznb336mixxx5rt3u)
 
 include_directories(${MUMPS_DIR}/include)
 link_directories(${MUMPS_DIR}/lib) 
