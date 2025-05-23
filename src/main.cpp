@@ -277,7 +277,7 @@ public:
 	  launch(3);
           auto end = std::chrono::high_resolution_clock::now();
 	  // icntl11 to 2 to compute the error etc
-	  auto old_value = mumps.icntl[11-1]; 
+	  auto old_value = get_icntl(11); 
 	  set_icntl(11, 2);
 	  launch(3) ; 
 	  set_icntl(11, old_value);
@@ -342,6 +342,7 @@ public:
     set_cntl(epsilon);
   }
   //---------------- GETTERS
+  auto get_icntl(auto key) { return mumps.icntl[key - 1]; }
   auto get_info(auto &key) { return mumps.info[key - 1]; }
   auto get_infog(auto &key) { return mumps.infog[key - 1]; }
   auto get_rinfo(auto &key) { return mumps.rinfo[key - 1]; }
