@@ -54,7 +54,7 @@ mpirun -np 4 ./MUMPS_bench
 ```
 
 ```
-mpirun -np 4 ./MUMPS_bench -m /path/to/matrix.mtx -l mumps.log --icntl 35 2 --cntl 7 0.01
+mpirun -np 4 ./MUMPS_bench -m /path/to/matrix.mtx -l mumps.json --icntl 35 2 --cntl 7 0.01
 ```
 
 ## TODO 
